@@ -21,7 +21,7 @@ import tn.esprit.spring.repository.UserRepository;
 
 @TestMethodOrder(OrderAnnotation.class)
 @ExtendWith(MockitoExtension.class)
-class UserServiceImplMock {
+class UserServiceImplMockTest {
 
     @Mock
     UserRepository userRepository;
