@@ -1,0 +1,7 @@
+target/
+*.log
+*.bak
+*.backup*
+.idea/
+*.iml
+.vscode/
