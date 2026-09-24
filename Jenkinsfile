@@ -12,19 +12,33 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Clean') {
             steps {
-                sh 'mvn -B -ntp clean compile'
+                sh 'mvn -B -ntp clean'
             }
         }
 
-        stage('Unit Tests') {
+        stage('Compile') {
+            steps {
+                sh 'mvn -B -ntp compile'
+            }
+        }
+
+        stage('Test') {
             steps {
                 sh 'mvn -B -ntp test'
             }
             post {
                 always {
                     junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh 'mvn -B -ntp sonar:sonar -Dsonar.projectKey=timesheet-pipeline -Dsonar.projectName=timesheet-pipeline'
                 }
             }
         }
