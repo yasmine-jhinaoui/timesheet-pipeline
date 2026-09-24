@@ -4,6 +4,10 @@ pipeline {
     tools {
         maven 'M3'
     }
+     environment {
+        DOCKER_IMAGE = 'yasminejhinaoui/timesheet-devops'
+        IMAGE_TAG    = "${BUILD_NUMBER}"
+    }
 
     stages {
         stage('Checkout') {
@@ -50,6 +54,30 @@ pipeline {
             post {
                 success {
                     archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                                                  usernameVariable: 'DH_USER',
+                                                  passwordVariable: 'DH_TOKEN')]) {
+                    sh '''
+                        echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
+                        docker push $DOCKER_IMAGE:$IMAGE_TAG
+                        docker push $DOCKER_IMAGE:latest
+                    '''
+                }
+            }
+            post {
+                always {
+                    sh 'docker logout'
                 }
             }
         }
