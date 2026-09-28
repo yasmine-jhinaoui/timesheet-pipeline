@@ -145,5 +145,23 @@ pipeline {
                 }
             }
         }
+
+        stage('Prometheus') {
+            steps {
+                sh """
+                    for i in \$(seq 1 12); do
+                        STATE=\$(curl -sG http://localhost:9090/api/v1/query --data-urlencode 'query=up{job="timesheet-app"}' | python3 -c "import json,sys; r=json.load(sys.stdin)['data']['result']; print(r[0]['value'][1] if r else 'absent')")
+                        echo "Prometheus -> timesheet-app : \$STATE"
+                        if [ "\$STATE" = "1" ]; then
+                            echo " -> metriques collectees par Prometheus"
+                            exit 0
+                        fi
+                        sleep 10
+                    done
+                    echo "Prometheus ne collecte pas les metriques de l'application"
+                    exit 1
+                """
+            }
+        }
     }
 }

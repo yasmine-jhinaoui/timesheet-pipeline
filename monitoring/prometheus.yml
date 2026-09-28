@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: jenkins
+    metrics_path: /prometheus/
+    static_configs:
+      - targets: ["host.docker.internal:9191"]
+
+  - job_name: timesheet-app
+    metrics_path: /timesheet-devops/actuator/prometheus
+    static_configs:
+      - targets: ["192.168.49.2:30089"]
+        labels:
+          application: timesheet-devops
+          env: kubernetes
