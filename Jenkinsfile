@@ -91,4 +91,22 @@ pipeline {
             }
         }
     }
+        stage('Deploy (Docker Compose)') {
+            steps {
+                withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
+                    sh 'docker compose -p timesheet-pipeline up -d'
+                }
+                sh '''
+                    for i in $(seq 1 24); do
+                        if curl -sf http://localhost:8089/timesheet-devops/actuator/health; then
+                            echo " -> application UP"
+                            exit 0
+                        fi
+                        sleep 5
+                    done
+                    echo "L'application n'a pas demarre a temps"
+                    exit 1
+                '''
+            }
+        }
 }

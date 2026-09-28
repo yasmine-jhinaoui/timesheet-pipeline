@@ -1,0 +1,36 @@
+services:
+  mysqldb:
+    image: mysql:8.0
+    container_name: timesheet-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: timesheet-devops-db
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 768m
+    restart: unless-stopped
+
+  app:
+    image: yasminejhinaoui/timesheet-devops:${IMAGE_TAG:-latest}
+    container_name: timesheet-app
+    depends_on:
+      mysqldb:
+        condition: service_healthy
+    ports:
+      - "8089:8080"
+    environment:
+      DB_URL: jdbc:mysql://mysqldb:3306/timesheet-devops-db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USER: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    mem_limit: 512m
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
