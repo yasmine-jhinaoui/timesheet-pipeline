@@ -57,6 +57,15 @@ pipeline {
                 }
             }
         }
+        stage('Deploy to Nexus') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                                                  usernameVariable: 'NEXUS_USER',
+                                                  passwordVariable: 'NEXUS_PASS')]) {
+                    sh 'mvn -B -ntp -s ci-settings.xml deploy -DskipTests'
+                }
+            }
+        }
         stage('Docker Build') {
             steps {
                 sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest .'

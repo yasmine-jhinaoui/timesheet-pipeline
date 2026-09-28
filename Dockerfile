@@ -7,7 +7,7 @@ WORKDIR /app
 # Utilisateur non-root (bonne pratique de sécurité)
 RUN addgroup -S app && adduser -S app -G app
 
-COPY target/timesheet-devops-1.0.jar app.jar
+COPY target/timesheet-devops-*.jar app.jar
 
 USER app
 
