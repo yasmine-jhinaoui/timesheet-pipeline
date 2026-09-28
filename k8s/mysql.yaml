@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-data
+  namespace: timesheet
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysqldb
+  namespace: timesheet
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: mysqldb
+  template:
+    metadata:
+      labels:
+        app: mysqldb
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              value: timesheet-devops-db
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 768Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mysql-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysqldb
+  namespace: timesheet
+spec:
+  selector:
+    app: mysqldb
+  ports:
+    - port: 3306

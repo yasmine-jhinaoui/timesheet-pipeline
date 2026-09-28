@@ -94,7 +94,7 @@ pipeline {
             }
         }
 
-        stage('Deploy (Docker Compose)') {
+        stage('Integration Test (Docker Compose)') {
             steps {
                 withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
                     sh 'docker compose -p timesheet-pipeline up -d'
@@ -102,7 +102,7 @@ pipeline {
                 sh '''
                     for i in $(seq 1 24); do
                         if curl -sf http://localhost:8089/timesheet-devops/actuator/health; then
-                            echo " -> application UP"
+                            echo " -> application UP (Docker Compose)"
                             exit 0
                         fi
                         sleep 5
@@ -110,6 +110,39 @@ pipeline {
                     echo "L'application n'a pas demarre a temps"
                     exit 1
                 '''
+            }
+            post {
+                always {
+                    withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
+                        sh 'docker compose -p timesheet-pipeline down'
+                    }
+                }
+            }
+        }
+
+        stage('Kubernetes Deploy') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        kubectl apply -f k8s/namespace.yaml -f k8s/mysql.yaml
+                        sed "s|timesheet-devops:latest|timesheet-devops:${IMAGE_TAG}|" k8s/app.yaml | kubectl apply -f -
+                    '''
+                }
+            }
+        }
+
+        stage('Kubernetes Verification') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        kubectl rollout status deployment/mysqldb -n timesheet --timeout=300s
+                        kubectl rollout status deployment/timesheet-app -n timesheet --timeout=300s
+                        kubectl get pods -n timesheet -o wide
+                        NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+                        curl -sf http://$NODE_IP:30089/timesheet-devops/actuator/health
+                        echo " -> application UP (Kubernetes)"
+                    '''
+                }
             }
         }
     }
