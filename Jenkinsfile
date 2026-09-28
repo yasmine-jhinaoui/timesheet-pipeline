@@ -4,7 +4,8 @@ pipeline {
     tools {
         maven 'M3'
     }
-     environment {
+
+    environment {
         DOCKER_IMAGE = 'yasminejhinaoui/timesheet-devops'
         IMAGE_TAG    = "${BUILD_NUMBER}"
     }
@@ -57,6 +58,7 @@ pipeline {
                 }
             }
         }
+
         stage('Deploy to Nexus') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'nexus-creds',
@@ -66,6 +68,7 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build') {
             steps {
                 sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest .'
@@ -90,7 +93,7 @@ pipeline {
                 }
             }
         }
-    }
+
         stage('Deploy (Docker Compose)') {
             steps {
                 withCredentials([string(credentialsId: 'mysql-root-password', variable: 'MYSQL_ROOT_PASSWORD')]) {
@@ -109,4 +112,5 @@ pipeline {
                 '''
             }
         }
+    }
 }
