@@ -165,6 +165,30 @@ pipeline {
             }
         }
 
+        stage('DAST (sqlmap)') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+                        rm -rf sqlmap-report
+                        sqlmap -u "http://$NODE_IP:30089/timesheet-devops/user/retrieve-user/1*" \
+                            --batch --dbms=mysql --level=3 --risk=1 \
+                            --flush-session --output-dir=sqlmap-report | tee sqlmap-output.txt
+                        if [ -s "sqlmap-report/$NODE_IP/log" ]; then
+                            echo "INJECTION SQL DETECTEE : deploiement refuse"
+                            exit 1
+                        fi
+                        echo " -> aucune injection SQL detectee"
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'sqlmap-output.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
