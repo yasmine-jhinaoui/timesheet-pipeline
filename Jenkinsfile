@@ -48,6 +48,8 @@ pipeline {
                             -DnvdApiKey=$NVD_API_KEY \
                             -Dformats=HTML,XML \
                             -DossindexAnalyzerEnabled=false \
+                            -DretireJsAnalyzerEnabled=false \
+                            -DnvdValidForHours=24 \
                             -DfailBuildOnCVSS=11
                     '''
                 }
