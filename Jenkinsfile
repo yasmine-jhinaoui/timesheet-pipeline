@@ -176,7 +176,7 @@ pipeline {
                         sqlmap -u "http://$NODE_IP:30089/timesheet-devops/user/retrieve-user/1*" \
                             --batch --dbms=mysql --level=3 --risk=1 \
                             --flush-session --output-dir=sqlmap-report | tee sqlmap-output.txt
-                        if [ -s "sqlmap-report/$NODE_IP/log" ]; then
+                        if grep -q "identified the following injection point" sqlmap-output.txt || [ -s "sqlmap-report/$NODE_IP/log" ]; then
                             echo "INJECTION SQL DETECTEE : deploiement refuse"
                             exit 1
                         fi
