@@ -297,6 +297,69 @@ pipeline {
             }
         }
 
+        stage('Configuration Safety Checks (OSQuery)') {
+            steps {
+                sh '''
+                    ALLOWED_PRIVILEGED="/minikube"
+                    rm -rf osquery-reports
+                    mkdir osquery-reports
+                    cd osquery-reports
+                    log() { echo "$1" | tee -a summary.txt; }
+
+                    osqueryi --json "SELECT username, uid, shell FROM users WHERE uid = 0;" > uid0-accounts.json
+                    osqueryi --json "SELECT name, image, privileged FROM docker_containers WHERE state = 'running';" > running-containers.json
+                    osqueryi --json "SELECT name, image FROM docker_containers WHERE state = 'running' AND privileged = 1;" > privileged-containers.json
+                    osqueryi --json "SELECT c.name, m.source, m.destination FROM docker_container_mounts m JOIN docker_containers c ON c.id = m.id WHERE m.source LIKE '%docker.sock%';" > docker-socket-mounts.json
+                    osqueryi --json "SELECT DISTINCT port, address, protocol FROM listening_ports WHERE address IN ('0.0.0.0', '::') AND port > 0 ORDER BY port;" > listening-ports.json
+
+                    log "=== Configuration Safety Checks (OSQuery) ==="
+                    log "$(date)"
+                    FAILED=0
+
+                    UID0=$(grep -o '"username":"[^"]*"' uid0-accounts.json | cut -d'"' -f4 | tr '\\n' ' ')
+                    log "Regle 1 - comptes uid 0 : $UID0"
+                    if [ "$UID0" != "root " ]; then
+                        log "  ECHEC : un compte autre que root a l'uid 0"
+                        FAILED=1
+                    else
+                        log "  OK : seul root a l'uid 0"
+                    fi
+
+                    PRIV=$(grep -o '"name":"[^"]*"' privileged-containers.json | cut -d'"' -f4 | tr '\\n' ' ')
+                    log "Regle 2 - conteneurs privilegies : ${PRIV:-aucun}"
+                    for c in $PRIV; do
+                        case " $ALLOWED_PRIVILEGED " in
+                            *" $c "*) log "  OK : $c est une exception justifiee (noeud Kubernetes Minikube)" ;;
+                            *) log "  ECHEC : conteneur privilegie non autorise : $c"; FAILED=1 ;;
+                        esac
+                    done
+
+                    SOCK=$(grep -o '"name":"[^"]*"' docker-socket-mounts.json | cut -d'"' -f4 | tr '\\n' ' ')
+                    log "Regle 3 - conteneurs avec acces au socket Docker : ${SOCK:-aucun}"
+                    if [ -n "$SOCK" ]; then
+                        log "  ECHEC : acces au socket Docker = controle total de la machine"
+                        FAILED=1
+                    else
+                        log "  OK : aucun conteneur n'a acces au socket Docker"
+                    fi
+
+                    log "Info - ports ouverts sur toutes les interfaces : voir listening-ports.json"
+
+                    if [ "$FAILED" -ne 0 ]; then
+                        log "RESULTAT : configuration non conforme, deploiement refuse"
+                        exit 1
+                    fi
+                    log "RESULTAT : configuration conforme"
+                    echo " -> OSQuery : configuration conforme aux 3 regles"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'osquery-reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
