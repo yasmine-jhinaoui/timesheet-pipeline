@@ -10,8 +10,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - default
-      - minikube
+      default:
+      minikube:
+        ipv4_address: 192.168.49.100
     mem_limit: 300m
     restart: unless-stopped
 
