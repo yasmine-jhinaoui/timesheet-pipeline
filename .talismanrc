@@ -3,4 +3,6 @@
 allowed_patterns:
 - "nvd-api-key"
 - "nvdApiKey=.NVD_API_KEY"
+# Faux positif verifie : chemin d'un secret dans HashiCorp Vault, pas sa valeur
+- "withVault.configuration: .vaultUrl:.*"
 version: "1.0"
