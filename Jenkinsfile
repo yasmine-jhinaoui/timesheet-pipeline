@@ -172,6 +172,38 @@ pipeline {
             }
         }
 
+        stage('Kubernetes Secret (Vault)') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    withVault(configuration: [vaultUrl: 'http://127.0.0.1:8200', vaultCredentialId: 'vault-approle', engineVersion: 2], vaultSecrets: [[path: 'secret/timesheet/mysql', engineVersion: 2, secretValues: [[envVar: 'MYSQL_ROOT_PASSWORD', vaultKey: 'root_password']]]]) {
+                        sh '''
+                            umask 077
+                            TMP=$(mktemp)
+                            printf '%s' "$MYSQL_ROOT_PASSWORD" > "$TMP"
+                            kubectl apply -f k8s/namespace.yaml
+                            kubectl create secret generic mysql-secret -n timesheet \
+                                --from-file=MYSQL_ROOT_PASSWORD="$TMP" \
+                                --dry-run=client -o yaml | kubectl apply -f -
+                            rm -f "$TMP"
+                            {
+                                echo "=== Synchronisation Vault -> Kubernetes ==="
+                                date
+                                echo "Source : Vault, chemin secret/timesheet/mysql (identite AppRole jenkins)"
+                                echo ""
+                                kubectl describe secret mysql-secret -n timesheet
+                            } > k8s-secret-report.txt
+                            echo " -> Secret Kubernetes mysql-secret synchronise depuis Vault"
+                        '''
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'k8s-secret-report.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Kubernetes Deploy') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {

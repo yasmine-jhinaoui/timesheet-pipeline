@@ -13,4 +13,12 @@ allowed_patterns:
 - "echo .RESULTAT : mot de passe absent de docker inspect .transmis uniquement par Docker Secrets.*"
 - "echo . -> Docker Secrets : mot de passe absent de docker inspect."
 - "archiveArtifacts artifacts: .docker-secrets-check.txt., allowEmptyArchive: true"
+# Faux positifs verifies (Kubernetes + Vault) : commandes kubectl et variables, aucune valeur
+- "printf .%s. ..MYSQL_ROOT_PASSWORD. > ..TMP."
+- "--from-file=MYSQL_ROOT_PASSWORD=..TMP..*"
+- "kubectl create secret generic mysql-secret -n timesheet.*"
+- "kubectl describe secret mysql-secret -n timesheet"
+- "echo .Source : Vault, chemin secret/timesheet/mysql .identite AppRole jenkins.."
+- "echo . -> Secret Kubernetes mysql-secret synchronise depuis Vault."
+- "archiveArtifacts artifacts: .k8s-secret-report.txt., allowEmptyArchive: true"
 version: "1.0"
