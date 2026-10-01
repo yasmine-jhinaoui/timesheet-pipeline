@@ -5,4 +5,12 @@ allowed_patterns:
 - "nvdApiKey=.NVD_API_KEY"
 # Faux positif verifie : chemin d'un secret dans HashiCorp Vault, pas sa valeur
 - "withVault.configuration: .vaultUrl:.*"
+# Faux positifs verifies (Docker Secrets) : chemins, variables et messages, aucune valeur secrete
+- "MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password"
+- "printf .%s. ..MYSQL_ROOT_PASSWORD. > .secrets/mysql_root_password"
+- "test -s .secrets/mysql_root_password .. . echo .ERREUR : secret vide.*"
+- "echo .=== Docker Secrets : verification ===."
+- "echo .RESULTAT : mot de passe absent de docker inspect .transmis uniquement par Docker Secrets.*"
+- "echo . -> Docker Secrets : mot de passe absent de docker inspect."
+- "archiveArtifacts artifacts: .docker-secrets-check.txt., allowEmptyArchive: true"
 version: "1.0"

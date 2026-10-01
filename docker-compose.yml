@@ -3,12 +3,14 @@ services:
     image: mysql:8.0
     container_name: timesheet-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
       MYSQL_DATABASE: timesheet-devops-db
+    secrets:
+      - mysql_root_password
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$(cat /run/secrets/mysql_root_password)\" --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -27,10 +29,18 @@ services:
     environment:
       DB_URL: jdbc:mysql://mysqldb:3306/timesheet-devops-db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USER: root
-      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_CONFIG_IMPORT: "configtree:/run/secrets/"
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+    secrets:
+      - DB_PASSWORD
     mem_limit: 512m
     restart: unless-stopped
+
+secrets:
+  mysql_root_password:
+    file: ./.secrets/mysql_root_password
+  DB_PASSWORD:
+    file: ./.secrets/mysql_root_password
 
 volumes:
   mysql-data:

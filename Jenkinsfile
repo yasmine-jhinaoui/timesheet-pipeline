@@ -118,7 +118,36 @@ pipeline {
         stage('Integration Test (Docker Compose)') {
             steps {
                 withVault(configuration: [vaultUrl: 'http://127.0.0.1:8200', vaultCredentialId: 'vault-approle', engineVersion: 2], vaultSecrets: [[path: 'secret/timesheet/mysql', engineVersion: 2, secretValues: [[envVar: 'MYSQL_ROOT_PASSWORD', vaultKey: 'root_password']]]]) {
-                    sh 'docker compose -p timesheet-pipeline up -d'
+                    sh '''
+                        rm -rf .secrets
+                        mkdir -m 700 .secrets
+                        printf '%s' "$MYSQL_ROOT_PASSWORD" > .secrets/mysql_root_password
+                        chmod 644 .secrets/mysql_root_password
+                        test -s .secrets/mysql_root_password || { echo "ERREUR : secret vide"; exit 1; }
+
+                        docker compose -p timesheet-pipeline up -d
+
+                        {
+                            echo "=== Docker Secrets : verification ==="
+                            date
+                            for c in timesheet-mysql timesheet-app; do
+                                echo ""
+                                echo "--- $c : variables d'environnement visibles avec docker inspect"
+                                docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}'
+                                echo "--- $c : secrets montes dans /run/secrets/"
+                                docker inspect "$c" --format '{{range .Mounts}}{{println .Destination}}{{end}}' | grep /run/secrets
+                            done
+                        } > docker-secrets-check.txt
+
+                        if grep -qF -- "$MYSQL_ROOT_PASSWORD" docker-secrets-check.txt; then
+                            rm -f docker-secrets-check.txt
+                            echo "ECHEC : le mot de passe est visible dans docker inspect"
+                            exit 1
+                        fi
+                        echo "" >> docker-secrets-check.txt
+                        echo "RESULTAT : mot de passe absent de docker inspect (transmis uniquement par Docker Secrets)" >> docker-secrets-check.txt
+                        echo " -> Docker Secrets : mot de passe absent de docker inspect"
+                    '''
                 }
                 sh '''
                     for i in $(seq 1 24); do
@@ -134,9 +163,11 @@ pipeline {
             }
             post {
                 always {
-                    withVault(configuration: [vaultUrl: 'http://127.0.0.1:8200', vaultCredentialId: 'vault-approle', engineVersion: 2], vaultSecrets: [[path: 'secret/timesheet/mysql', engineVersion: 2, secretValues: [[envVar: 'MYSQL_ROOT_PASSWORD', vaultKey: 'root_password']]]]) {
-                        sh 'docker compose -p timesheet-pipeline down'
-                    }
+                    sh '''
+                        docker compose -p timesheet-pipeline down || true
+                        rm -rf .secrets
+                    '''
+                    archiveArtifacts artifacts: 'docker-secrets-check.txt', allowEmptyArchive: true
                 }
             }
         }
