@@ -21,4 +21,6 @@ allowed_patterns:
 - "echo .Source : Vault, chemin secret/timesheet/mysql .identite AppRole jenkins.."
 - "echo . -> Secret Kubernetes mysql-secret synchronise depuis Vault."
 - "archiveArtifacts artifacts: .k8s-secret-report.txt., allowEmptyArchive: true"
+# Faux positif verifie (ZAP) : $PWD est le dossier courant du shell, pas un mot de passe
+- "docker run --rm --network host -v ..PWD/zap-reports:/zap/wrk/:rw..*"
 version: "1.0"

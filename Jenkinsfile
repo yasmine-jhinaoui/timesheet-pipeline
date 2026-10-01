@@ -254,6 +254,49 @@ pipeline {
             }
         }
 
+        stage('Security Smoke Tests (ZAP + nmap)') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+
+                        rm -rf zap-reports
+                        mkdir -m 777 zap-reports
+                        set +e
+                        docker run --rm --network host -v "$PWD/zap-reports:/zap/wrk/:rw" \
+                            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+                            -t "http://$NODE_IP:30089/timesheet-devops/user/retrieve-all-users" \
+                            -r zap-report.html -J zap-report.json
+                        ZAP_RC=$?
+                        set -e
+                        echo "Code de sortie ZAP : $ZAP_RC"
+                        if [ "$ZAP_RC" -eq 1 ] || [ "$ZAP_RC" -ge 3 ]; then
+                            echo "ZAP : alerte FAIL ou erreur du scan, deploiement refuse"
+                            exit 1
+                        fi
+                        echo " -> ZAP : aucune alerte FAIL (avertissements dans le rapport)"
+
+                        ALLOWED_PORTS="30089"
+                        nmap -sV -p 30000-32767 -oN nmap-report.txt "$NODE_IP"
+                        OPEN=$(grep -E '^[0-9]+/tcp +open' nmap-report.txt | cut -d/ -f1 | tr '\\n' ' ')
+                        echo "Ports NodePort ouverts : $OPEN"
+                        for p in $OPEN; do
+                            case " $ALLOWED_PORTS " in
+                                *" $p "*) ;;
+                                *) echo "nmap : port inattendu $p, deploiement refuse"; exit 1 ;;
+                            esac
+                        done
+                        echo " -> nmap : seuls les ports autorises sont exposes ($ALLOWED_PORTS)"
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'zap-reports/*, nmap-report.txt', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
