@@ -115,7 +115,7 @@ pipeline {
             }
         }
 
-        stage('Integration Test (Docker Compose)') {
+        stage('Integration Test (Docker Compose + Docker Secrets)') {
             steps {
                 withVault(configuration: [vaultUrl: 'http://127.0.0.1:8200', vaultCredentialId: 'vault-approle', engineVersion: 2], vaultSecrets: [[path: 'secret/timesheet/mysql', engineVersion: 2, secretValues: [[envVar: 'MYSQL_ROOT_PASSWORD', vaultKey: 'root_password']]]]) {
                     sh '''
