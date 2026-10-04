@@ -1,0 +1,21 @@
+---
+# Politique crypto FIPS (la sous-politique STIG exigee n'existe pas sur Rocky 9.8 : limite documentee)
+crypto_policy::ensure: 'FIPS'
+
+# Umask au format exact attendu par le STIG
+useradd::etc_profile::umask: '077'
+
+# su : forme exacte exigee par le STIG (auth required pam_wheel.so use_uid)
+pam::su_content: |
+  #%PAM-1.0
+  auth       required     pam_env.so
+  auth       sufficient   pam_rootok.so
+  auth       required     pam_wheel.so use_uid
+  auth       substack     system-auth
+  auth       include      postlogin
+  account    sufficient   pam_succeed_if.so uid = 0 use_uid quiet
+  account    include      system-auth
+  password   include      system-auth
+  session    include      system-auth
+  session    include      postlogin
+  session    optional     pam_xauth.so
