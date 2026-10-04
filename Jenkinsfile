@@ -220,7 +220,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
                     sh '''
                         kubectl rollout status deployment/mysqldb -n timesheet --timeout=300s
-                        kubectl rollout status deployment/timesheet-app -n timesheet --timeout=300s
+                        kubectl rollout status deployment/timesheet-app -n timesheet --timeout=600s
                         kubectl get pods -n timesheet -o wide
                         NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
                         curl -sf --retry 12 --retry-delay 5 --retry-connrefused --retry-all-errors http://$NODE_IP:30089/timesheet-devops/actuator/health
