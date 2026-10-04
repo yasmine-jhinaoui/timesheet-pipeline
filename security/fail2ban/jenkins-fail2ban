@@ -1,0 +1,2 @@
+# Jenkins : lecture seule de fail2ban pour le stage du pipeline (moindre privilege)
+jenkins ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status, /usr/bin/fail2ban-client status jenkins-auth, /usr/bin/fail2ban-client get jenkins-auth maxretry, /usr/bin/fail2ban-client get jenkins-auth findtime, /usr/bin/fail2ban-client get jenkins-auth bantime

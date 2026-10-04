@@ -360,6 +360,85 @@ pipeline {
             }
         }
 
+        stage('Intrusion Detection (fail2ban)') {
+            steps {
+                sh '''
+                    F2B="sudo -n /usr/bin/fail2ban-client"
+                    FILTER=/etc/fail2ban/filter.d/jenkins-auth.conf
+                    rm -rf fail2ban-reports
+                    mkdir fail2ban-reports
+                    cd fail2ban-reports
+                    log() { echo "$1" | tee -a summary.txt; }
+
+                    log "=== Intrusion Detection (fail2ban) ==="
+                    log "$(date)"
+                    FAILED=0
+
+                    STATE=$(systemctl is-active fail2ban || true)
+                    log "Regle 1 - service fail2ban : $STATE"
+                    if [ "$STATE" = "active" ]; then
+                        log "  OK : fail2ban est actif"
+                    else
+                        log "  ECHEC : fail2ban n'est pas actif"
+                        FAILED=1
+                    fi
+
+                    $F2B status > global-status.txt 2>&1 || true
+                    $F2B status jenkins-auth > jail-status.txt 2>&1 || true
+                    if grep -q "jenkins-auth" global-status.txt; then
+                        log "Regle 2 - jail jenkins-auth : active"
+                        log "  OK : le login Jenkins est protege"
+                    else
+                        log "Regle 2 - jail jenkins-auth : absente"
+                        log "  ECHEC : la protection du login Jenkins est desactivee"
+                        FAILED=1
+                    fi
+
+                    MAXRETRY=$($F2B get jenkins-auth maxretry 2>/dev/null || echo 0)
+                    FINDTIME=$($F2B get jenkins-auth findtime 2>/dev/null || echo 0)
+                    BANTIME=$($F2B get jenkins-auth bantime 2>/dev/null || echo 0)
+                    log "Regle 3 - politique : maxretry=$MAXRETRY, findtime=${FINDTIME}s, bantime=${BANTIME}s"
+                    if [ "$MAXRETRY" -ge 1 ] 2>/dev/null && [ "$MAXRETRY" -le 5 ] && [ "$BANTIME" -ge 600 ] 2>/dev/null; then
+                        log "  OK : 5 essais maximum, bannissement d'au moins 10 minutes"
+                    else
+                        log "  ECHEC : politique trop permissive (attendu : maxretry <= 5, bantime >= 600)"
+                        FAILED=1
+                    fi
+
+                    match() { fail2ban-regex "$1" "$FILTER" 2>/dev/null | grep -o "[0-9]* matched" | head -1 | cut -d" " -f1; }
+                    L_FAIL4='203.0.113.7 - - [04/Oct/2026:19:22:09 +0100] "GET /loginError HTTP/1.1" 401 2567 "-" "curl"'
+                    L_FAIL6='[2001:db8:0:0:0:0:0:7] - - [04/Oct/2026:19:22:09 +0100] "GET /loginError HTTP/1.1" 401 2567 "-" "curl"'
+                    L_OK='203.0.113.7 - - [04/Oct/2026:19:22:09 +0100] "GET /login HTTP/1.1" 200 2567 "-" "curl"'
+                    M4=$(match "$L_FAIL4")
+                    M6=$(match "$L_FAIL6")
+                    MOK=$(match "$L_OK")
+                    log "Regle 4 - test du filtre : echec IPv4=$M4, echec IPv6=$M6, page normale=$MOK"
+                    if [ "$M4" = "1" ] && [ "$M6" = "1" ] && [ "$MOK" = "0" ]; then
+                        log "  OK : le filtre detecte les echecs (IPv4 et IPv6) sans faux positif"
+                    else
+                        log "  ECHEC : le filtre ne se comporte plus comme attendu (attendu : 1, 1, 0)"
+                        FAILED=1
+                    fi
+
+                    BANNED=$(grep "Banned IP list" jail-status.txt | cut -d: -f2- | xargs)
+                    TOTAL=$(grep "Total banned" jail-status.txt | awk '{print $NF}')
+                    log "Info - IP actuellement bannies : ${BANNED:-aucune} (total depuis le demarrage : ${TOTAL:-0})"
+
+                    if [ "$FAILED" -ne 0 ]; then
+                        log "RESULTAT : protection anti brute-force non conforme"
+                        exit 1
+                    fi
+                    log "RESULTAT : protection anti brute-force conforme"
+                    echo " -> fail2ban : login Jenkins protege, 4 regles respectees"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'fail2ban-reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
