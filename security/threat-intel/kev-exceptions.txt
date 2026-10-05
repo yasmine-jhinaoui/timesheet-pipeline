@@ -1,0 +1,3 @@
+# Exceptions Threat Intelligence : CVE activement exploitees (CISA KEV) toleremees temporairement.
+# Format : CVE | date d'expiration (AAAA-MM-JJ) | justification
+# Une exception expiree redevient automatiquement bloquante.

@@ -61,6 +61,21 @@ pipeline {
             }
         }
 
+        stage('Threat Intelligence (CISA KEV + EPSS)') {
+            steps {
+                sh '''
+                    rm -rf ti-reports
+                    python3 security/threat-intel/ti-check.py target/dependency-check-report.xml ti-reports security/threat-intel/kev-exceptions.txt
+                    echo " -> Threat Intelligence : aucune CVE activement exploitee sans exception"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'ti-reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('SonarQube') {
             steps {
                 withSonarQubeEnv('sonarqube') {
