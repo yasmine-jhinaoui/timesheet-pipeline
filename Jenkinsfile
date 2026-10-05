@@ -531,6 +531,65 @@ pipeline {
             }
         }
 
+        stage('Resilience (Chaos Monkey)') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-minikube', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        rm -rf chaos-reports
+                        mkdir chaos-reports
+                        log() { echo "$1" | tee -a chaos-reports/summary.txt; }
+                        kubectl apply -f k8s/chaos/kube-monkey.yaml > /dev/null
+                        kubectl apply -f k8s/monitoring/kube-state-metrics.yaml > /dev/null
+                        kubectl -n monitoring rollout status deployment/kube-state-metrics --timeout=600s
+                        kubectl -n timesheet rollout status deployment/timesheet-app --timeout=600s
+
+                        log "=== Resilience (Chaos Monkey) ==="
+                        log "$(date)"
+                        FAILED=0
+                        START=$(date +%s)
+                        set +e
+                        OUT=chaos-reports ./k8s/chaos/chaos-test.sh
+                        RC=$?
+                        set -e
+                        case $RC in
+                            0) log "Regle 1 - panne injectee : OK, un pod tue par kube-monkey"
+                               log "Regle 2 - disponibilite pendant la panne : OK, 100 %" ;;
+                            1) log "Regle 1 - panne injectee : OK, un pod tue par kube-monkey"
+                               log "Regle 2 - disponibilite pendant la panne : ECHEC, coupure observee (voir chaos.log)"
+                               FAILED=1 ;;
+                            *) log "Regle 1 - panne injectee : ECHEC, kube-monkey n'a tue aucun pod"
+                               FAILED=1 ;;
+                        esac
+
+                        sleep 20
+                        W=$(( $(date +%s) - START ))
+                        FIRED=$(curl -sG http://localhost:9090/api/v1/query --data-urlencode "query=max_over_time(ALERTS{alertstate=\\"firing\\"}[${W}s])" | grep -o '"alertname":"[A-Za-z]*"' | cut -d'"' -f4 | sort -u | tr '\\n' ' ')
+                        log "Regle 3 - alertes Prometheus pendant l'experience : ${FIRED:-aucune}"
+                        case " $FIRED " in *" TimesheetAppDegraded "*) DEG=1 ;; *) DEG=0 ;; esac
+                        case " $FIRED " in *" TimesheetAppDown "*) DOWN=1 ;; *) DOWN=0 ;; esac
+                        if [ "$DEG" -eq 1 ] && [ "$DOWN" -eq 0 ]; then
+                            log "  OK : perte de redondance detectee, aucune coupure signalee"
+                        else
+                            log "  ECHEC : le monitoring n'a pas reagi comme attendu (attendu : TimesheetAppDegraded seule)"
+                            FAILED=1
+                        fi
+
+                        if [ "$FAILED" -ne 0 ]; then
+                            log "RESULTAT : application non resiliente, deploiement refuse"
+                            exit 1
+                        fi
+                        log "RESULTAT : panne absorbee sans coupure et detectee par le monitoring"
+                        echo " -> Chaos Monkey : application resiliente et monitoring operationnel"
+                    '''
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'chaos-reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
