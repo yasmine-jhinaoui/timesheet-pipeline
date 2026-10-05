@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: timesheet
+    folder: DevSecOps
+    type: file
+    options:
+      path: /etc/grafana/dashboards
