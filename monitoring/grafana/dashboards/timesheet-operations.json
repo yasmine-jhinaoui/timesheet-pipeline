@@ -2,32 +2,82 @@
   "uid": "timesheet-ops",
   "title": "Timesheet - Operations (DevSecOps)",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "10s",
   "time": {
-    "from": "now-1h",
+    "from": "now-3h",
     "to": "now"
   },
   "tags": [
     "devsecops",
     "operations"
   ],
+  "annotations": {
+    "list": [
+      {
+        "name": "Panne injectee (redondance perdue)",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-ops"
+        },
+        "enable": true,
+        "iconColor": "orange",
+        "expr": "ALERTS{alertname=\"TimesheetAppDegraded\",alertstate=\"firing\"}",
+        "step": "15s",
+        "titleFormat": "Pod tue - redondance perdue"
+      },
+      {
+        "name": "Coupure du service",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus-ops"
+        },
+        "enable": true,
+        "iconColor": "red",
+        "expr": "ALERTS{alertname=\"TimesheetAppDown\",alertstate=\"firing\"}",
+        "step": "15s",
+        "titleFormat": "Service injoignable"
+      }
+    ]
+  },
   "panels": [
     {
+      "type": "text",
+      "title": "",
+      "options": {
+        "mode": "markdown",
+        "content": "## Timesheet - Supervision en exploitation (phase Operations DevSecOps)\n**Disponibilite** du service | **Resilience** face aux pannes injectees par *kube-monkey* (lignes verticales orange) | **Performance** applicative | **Pipeline** CI/CD Jenkins. Sources : Prometheus, kube-state-metrics, Spring Boot Actuator, plugin Prometheus de Jenkins."
+      },
       "id": 1,
-      "type": "stat",
-      "title": "Application timesheet",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
       },
       "gridPos": {
-        "h": 5,
-        "w": 6,
+        "h": 3,
+        "w": 24,
         "x": 0,
         "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Disponibilite",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
       },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Application",
+      "description": "Le service repond-il via le NodePort 30089 ?",
       "targets": [
         {
           "datasource": {
@@ -35,12 +85,14 @@
             "uid": "prometheus-ops"
           },
           "expr": "up{job=\"timesheet-app\"}",
-          "legendFormat": "etat",
+          "legendFormat": "timesheet-app",
           "refId": "A"
         }
       ],
       "options": {
         "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -49,6 +101,20 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
           "mappings": [
             {
               "type": "value",
@@ -63,7 +129,47 @@
                 }
               }
             }
-          ],
+          ]
+        }
+      },
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "Disponibilite 24 h",
+      "description": "Part des mesures ou le service repondait",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "avg_over_time(up{job=\"timesheet-app\"}[24h])",
+          "legendFormat": "disponibilite",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -72,28 +178,36 @@
                 "value": null
               },
               {
+                "color": "orange",
+                "value": 0.95
+              },
+              {
                 "color": "green",
-                "value": 1
+                "value": 0.99
               }
             ]
-          }
+          },
+          "min": 0,
+          "max": 1,
+          "decimals": 2
         }
-      }
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Alertes actives",
+      },
+      "id": 4,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
       },
       "gridPos": {
         "h": 5,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
+        "w": 5,
+        "x": 4,
+        "y": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Alertes actives",
+      "description": "",
       "targets": [
         {
           "datasource": {
@@ -107,6 +221,8 @@
       ],
       "options": {
         "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -115,6 +231,7 @@
       },
       "fieldConfig": {
         "defaults": {
+          "unit": "none",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -125,26 +242,90 @@
               {
                 "color": "orange",
                 "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
               }
             ]
           }
         }
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Repliques disponibles / demandees",
+      },
+      "id": 5,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
       },
       "gridPos": {
         "h": 5,
-        "w": 12,
-        "x": 12,
-        "y": 0
+        "w": 5,
+        "x": 9,
+        "y": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Pods prets",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "sum(kube_pod_container_status_ready{namespace=\"timesheet\",container=\"app\"})",
+          "legendFormat": "pods",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        }
+      },
+      "id": 6,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 14,
+        "y": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Repliques",
+      "description": "",
       "targets": [
         {
           "datasource": {
@@ -166,28 +347,58 @@
         }
       ],
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ]
         }
-      }
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Repliques de timesheet-app (creux = panne injectee)",
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "id": 7,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 5,
+        "w": 5,
+        "x": 19,
+        "y": 4
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Resilience (Fault Injection - kube-monkey)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
         "x": 0,
-        "y": 5
+        "y": 9
       },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Repliques de timesheet-app (creux = pod tue par kube-monkey)",
+      "description": "",
       "targets": [
         {
           "datasource": {
@@ -210,53 +421,37 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "min": 0,
+          "unit": "none",
           "custom": {
-            "lineInterpolation": "stepAfter"
-          }
-        }
-      }
-    },
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "Trafic HTTP (requetes par seconde)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus-ops"
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 5
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-ops"
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
           },
-          "expr": "sum(rate(http_server_requests_seconds_count{job=\"timesheet-app\"}[1m]))",
-          "legendFormat": "req/s",
-          "refId": "A"
+          "min": 0,
+          "decimals": 0
         }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Historique des alertes Prometheus",
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 9,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
-        "y": 14
-      },
+        "y": 10
+      }
+    },
+    {
+      "type": "state-timeline",
+      "title": "Frise des alertes Prometheus",
       "targets": [
         {
           "datasource": {
@@ -268,15 +463,558 @@
           "refId": "A"
         }
       ],
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8
+      },
       "fieldConfig": {
         "defaults": {
-          "min": 0,
-          "max": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "FIRING",
+                  "color": "orange"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "id": 10,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      }
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Performance applicative",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Trafic HTTP par route",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=\"timesheet-app\"}[1m]))",
+          "legendFormat": "{{uri}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
           "custom": {
-            "lineInterpolation": "stepAfter",
-            "fillOpacity": 30
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
           }
         }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 12,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latence moyenne",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "sum(rate(http_server_requests_seconds_sum{job=\"timesheet-app\"}[1m])) / sum(rate(http_server_requests_seconds_count{job=\"timesheet-app\"}[1m]))",
+          "legendFormat": "latence",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 13,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Taux d'erreurs HTTP 5xx",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "(sum(rate(http_server_requests_seconds_count{job=\"timesheet-app\",status=~\"5..\"}[5m])) or vector(0)) / sum(rate(http_server_requests_seconds_count{job=\"timesheet-app\"}[5m]))",
+          "legendFormat": "erreurs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "min": 0
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 27
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memoire JVM (heap)",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "sum(jvm_memory_used_bytes{job=\"timesheet-app\",area=\"heap\"})",
+          "legendFormat": "heap utilisee",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          }
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 27
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU de l'application",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "process_cpu_usage{job=\"timesheet-app\"}",
+          "legendFormat": "cpu",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "min": 0
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 27
+      }
+    },
+    {
+      "id": 17,
+      "type": "row",
+      "title": "Pipeline CI/CD (Jenkins)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Dernier build",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "default_jenkins_builds_last_build_result_ordinal{jenkins_job=~\".*timesheet-pipeline.*\"}",
+          "legendFormat": "resultat",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "SUCCESS",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "UNSTABLE",
+                  "color": "orange"
+                },
+                "2": {
+                  "text": "FAILURE",
+                  "color": "red"
+                },
+                "4": {
+                  "text": "ABORTED",
+                  "color": "gray"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "id": 18,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 35
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Duree du dernier build",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "default_jenkins_builds_last_build_duration_milliseconds{jenkins_job=~\".*timesheet-pipeline.*\"}",
+          "legendFormat": "duree",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1800000
+              },
+              {
+                "color": "red",
+                "value": 2700000
+              }
+            ]
+          }
+        }
+      },
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 35
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Builds en echec (total)",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "default_jenkins_builds_failed_build_count_total{jenkins_job=~\".*timesheet-pipeline.*\"}",
+          "legendFormat": "echecs",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "id": 20,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 35
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Score de sante Jenkins",
+      "description": "",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "default_jenkins_builds_health_score{jenkins_job=~\".*timesheet-pipeline.*\"}",
+          "legendFormat": "sante",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 40
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
+        }
+      },
+      "id": 21,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-ops"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 35
       }
     }
   ]
