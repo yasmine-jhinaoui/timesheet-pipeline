@@ -1,6 +1,7 @@
 # Faux positifs verifies : ce sont des NOMS de credentials Jenkins,
 # pas des secrets. La vraie cle est stockee dans Jenkins Credentials.
 allowed_patterns:
+- 'kube-monkey'
 - '== .pass.'
 - '\(.pass., .fail., .notapplicable., .notchecked.\)'
 - '\(fail -> pass\)'

@@ -4,7 +4,7 @@ metadata:
   name: timesheet-app
   namespace: timesheet
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: timesheet-app
@@ -20,7 +20,7 @@ spec:
       containers:
         - name: app
           image: yasminejhinaoui/timesheet-devops:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:

@@ -1,0 +1,92 @@
+# Fault Injection : kube-monkey (Chaos Monkey pour Kubernetes)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-monkey
+  namespace: chaos
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-monkey
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-monkey
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-monkey
+subjects:
+  - kind: ServiceAccount
+    name: kube-monkey
+    namespace: chaos
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-monkey-config-map
+  namespace: chaos
+data:
+  config.toml: |
+    [kubemonkey]
+    dry_run = false
+    run_hour = 8
+    start_hour = 10
+    end_hour = 16
+    blacklisted_namespaces = ["kube-system", "chaos"]
+    time_zone = "UTC"
+    [debug]
+    enabled = true
+    schedule_immediate_kill = true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-monkey
+  namespace: chaos
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: kube-monkey
+  template:
+    metadata:
+      labels:
+        app: kube-monkey
+    spec:
+      serviceAccountName: kube-monkey
+      containers:
+        - name: kube-monkey
+          image: ayushsobti/kube-monkey:v0.4.1
+          command: ["/kube-monkey"]
+          args: ["-v=5", "-logtostderr"]
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 50m
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kube-monkey
+      volumes:
+        - name: config
+          configMap:
+            name: kube-monkey-config-map

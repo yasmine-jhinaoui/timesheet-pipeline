@@ -1,0 +1,18 @@
+groups:
+  - name: timesheet-operations
+    rules:
+      - alert: TimesheetAppDown
+        expr: up{job="timesheet-app"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application timesheet injoignable"
+          description: "Prometheus n'arrive plus a joindre l'application via le NodePort 30089 depuis au moins 15 secondes."
+      - alert: TimesheetAppDegraded
+        expr: kube_deployment_status_replicas_available{namespace="timesheet",deployment="timesheet-app"} < kube_deployment_spec_replicas{namespace="timesheet",deployment="timesheet-app"}
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redondance perdue sur timesheet-app"
+          description: "Moins de repliques disponibles que demandees : le service tient encore, mais une panne de plus provoquerait une coupure."

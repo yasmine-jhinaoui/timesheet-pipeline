@@ -7,3 +7,4 @@ target/
 .vscode/
 .env
 .secrets/
+chaos-reports/

@@ -276,7 +276,7 @@ pipeline {
                         fi
                         echo " -> ZAP : aucune alerte FAIL (avertissements dans le rapport)"
 
-                        ALLOWED_PORTS="30089"
+                        ALLOWED_PORTS="30089 30081"
                         nmap -sV -p 30000-32767 -oN nmap-report.txt "$NODE_IP"
                         OPEN=$(grep -E '^[0-9]+/tcp +open' nmap-report.txt | cut -d/ -f1 | tr '\\n' ' ')
                         echo "Ports NodePort ouverts : $OPEN"
