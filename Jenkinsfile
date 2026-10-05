@@ -439,6 +439,98 @@ pipeline {
             }
         }
 
+        stage('Hardening Compliance (SIMP + OpenSCAP)') {
+            steps {
+                sh '''
+                    TARGET=simp-target
+                    ENVDIR=/etc/puppetlabs/code/environments/production
+                    DS=/usr/share/xml/scap/ssg/content/ssg-rl9-ds.xml
+                    PROFILE=xccdf_org.ssgproject.content_profile_stig
+                    ALLOWED_FAILS="configure_crypto_policy installed_OS_is_vendor_supported"
+                    rm -rf simp-reports
+                    mkdir simp-reports
+                    log() { echo "$1" | tee -a simp-reports/summary.txt; }
+
+                    log "=== Hardening Compliance (SIMP + OpenSCAP) ==="
+                    log "$(date)"
+                    FAILED=0
+
+                    if [ "$(docker inspect -f '{{.State.Running}}' $TARGET 2>/dev/null)" != "true" ]; then
+                        docker start $TARGET > /dev/null
+                        sleep 10
+                    fi
+                    log "Machine cible : $TARGET ($(docker exec $TARGET cat /etc/rocky-release))"
+
+                    docker cp security/simp/hiera.yaml $TARGET:$ENVDIR/hiera.yaml
+                    docker cp security/simp/data $TARGET:$ENVDIR/
+                    docker cp security/simp/site.pp $TARGET:/root/simp/site.pp
+
+                    set +e
+                    docker exec $TARGET /opt/puppetlabs/bin/puppet apply --detailed-exitcodes --color=false /root/simp/site.pp > simp-reports/puppet-apply.log 2>&1
+                    RC=$?
+                    set -e
+                    log "Regle 1 - durcissement SIMP (Puppet) : code $RC"
+                    case $RC in
+                        0) log "  OK : aucune derive, la machine correspond a la configuration Git" ;;
+                        2) log "  OK : derive detectee et corrigee automatiquement (voir puppet-apply.log)" ;;
+                        *) log "  ECHEC : erreur lors de l'application du durcissement"; FAILED=1 ;;
+                    esac
+
+                    set +e
+                    docker exec $TARGET oscap xccdf eval --profile $PROFILE --results /root/scap/pipeline-results.xml --report /root/scap/pipeline-report.html $DS > simp-reports/oscap.log 2>&1
+                    OSCAP_RC=$?
+                    set -e
+                    if [ "$OSCAP_RC" -eq 1 ]; then
+                        log "ECHEC : erreur d'execution d'OpenSCAP"
+                        exit 1
+                    fi
+                    docker cp $TARGET:/root/scap/pipeline-results.xml simp-reports/apres-results.xml
+                    docker cp $TARGET:/root/scap/pipeline-report.html simp-reports/stig-report.html
+                    docker cp $TARGET:/root/scap/avant-results.xml simp-reports/avant-results.xml
+                    python3 security/simp/compare.py simp-reports/avant-results.xml simp-reports/apres-results.xml > simp-reports/comparaison.txt
+                    cat simp-reports/comparaison.txt
+                    log "Info - score STIG avant -> apres : $(grep '^score' simp-reports/comparaison.txt | awk '{print $2 " -> " $3}')"
+
+                    FAILS=$(python3 -c "import xml.etree.ElementTree as E; N='{http://checklists.nist.gov/xccdf/1.2}'; print(' '.join(sorted(r.get('idref').replace('xccdf_org.ssgproject.content_rule_', '') for r in E.parse('simp-reports/apres-results.xml').iter(N + 'rule-result') if r.find(N + 'result').text == 'fail')))")
+                    UNEXPECTED=""
+                    for f in $FAILS; do
+                        case " $ALLOWED_FAILS " in
+                            *" $f "*) ;;
+                            *) UNEXPECTED="$UNEXPECTED $f" ;;
+                        esac
+                    done
+                    log "Regle 2 - regles STIG en echec : ${FAILS:-aucune}"
+                    if [ -n "$UNEXPECTED" ]; then
+                        log "  ECHEC : echecs non autorises :$UNEXPECTED"
+                        FAILED=1
+                    else
+                        log "  OK : seules les limites documentees echouent (sous-politique crypto STIG absente de Rocky 9.8, OS non RHEL)"
+                    fi
+
+                    REGR=$(python3 -c "import xml.etree.ElementTree as E; N='{http://checklists.nist.gov/xccdf/1.2}'; L=lambda f: {r.get('idref'): r.find(N + 'result').text for r in E.parse(f).iter(N + 'rule-result')}; a=L('simp-reports/avant-results.xml'); b=L('simp-reports/apres-results.xml'); print(' '.join(sorted(k.replace('xccdf_org.ssgproject.content_rule_', '') for k in a if a[k] == 'pass' and b.get(k) == 'fail')))")
+                    log "Regle 3 - regressions par rapport a la reference : ${REGR:-aucune}"
+                    if [ -n "$REGR" ]; then
+                        log "  ECHEC : le durcissement a casse des regles qui etaient respectees"
+                        FAILED=1
+                    else
+                        log "  OK : aucune regression"
+                    fi
+
+                    if [ "$FAILED" -ne 0 ]; then
+                        log "RESULTAT : durcissement non conforme, deploiement refuse"
+                        exit 1
+                    fi
+                    log "RESULTAT : machine durcie et conforme au STIG (hors limites documentees)"
+                    echo " -> SIMP + OpenSCAP : durcissement applique et conforme"
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'simp-reports/*', allowEmptyArchive: true
+                }
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
