@@ -132,3 +132,17 @@ try:
     print(f"== {len(metriques)} valeurs envoyees a la Pushgateway")
 except Exception as e:
     print("== ATTENTION : envoi a la Pushgateway impossible :", e)
+
+# Historique : un groupe par build dans la Pushgateway (panneau "CVE par build")
+h = ""
+for nom, aide, ligne in metriques:
+    if nom in ("devsecops_cve_total", "devsecops_cve_kev"):
+        h += ligne.replace("devsecops_", "devsecops_historique_", 1) + "\n"
+if h and build.isdigit():
+    try:
+        req = urllib.request.Request(f"{PUSHGATEWAY}/metrics/job/devsecops_historique/build/{build}",
+                                     data=h.encode(), method="PUT")
+        urllib.request.urlopen(req, timeout=10)
+        print(f"== historique du build {build} envoye")
+    except Exception as e:
+        print("== ATTENTION : historique non envoye :", e)
