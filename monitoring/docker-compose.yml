@@ -35,6 +35,14 @@ services:
     mem_limit: 256m
     restart: unless-stopped
 
+  pushgateway:
+    image: prom/pushgateway
+    container_name: pushgateway
+    ports:
+      - "9091:9091"
+    mem_limit: 64m
+    restart: unless-stopped
+
 networks:
   minikube:
     external: true

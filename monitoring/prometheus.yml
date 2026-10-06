@@ -28,3 +28,8 @@ scrape_configs:
       - targets: ["192.168.49.2:30081"]
         labels:
           source: kubernetes-api
+
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]

@@ -605,6 +605,13 @@ pipeline {
             }
         }
 
+        stage('Security Metrics (Pushgateway)') {
+            steps {
+                sh 'python3 security/metrics/push-metrics.py "$BUILD_NUMBER" | tee security-metrics.txt'
+                archiveArtifacts artifacts: 'security-metrics.txt', allowEmptyArchive: true
+            }
+        }
+
         stage('Prometheus') {
             steps {
                 sh """
