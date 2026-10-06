@@ -81,7 +81,7 @@ print("== OSQuery")
 f = trouver("osquery-reports/summary.txt", "summary.txt")
 if f:
     regles = [l for l in open(f) if re.match(r"\s*R[eè]gle \d", l)]
-    ok = sum(1 for l in regles if re.search(r"\bOK\b", l) and "ECHEC" not in l.upper())
+    ok = sum(1 for l in open(f) if re.match(r"\s+OK\b", l))
     ajouter("devsecops_osquery_regles_ok", ok, "Regles OSQuery respectees")
     ajouter("devsecops_osquery_regles_total", len(regles), "Regles OSQuery verifiees")
 else:
