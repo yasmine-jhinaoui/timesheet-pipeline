@@ -1504,10 +1504,18 @@
             "type": "prometheus",
             "uid": "prometheus-ops"
           },
-          "expr": "devsecops_stig_score",
-          "legendFormat": "{{moment}}",
-          "refId": "A",
-          "instant": false
+          "expr": "devsecops_stig_score{moment=\"avant\"}",
+          "legendFormat": "avant SIMP",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_stig_score{moment=\"apres\"}",
+          "legendFormat": "apres SIMP",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
@@ -1540,7 +1548,7 @@
       },
       "options": {
         "orientation": "horizontal",
-        "displayMode": "gradient",
+        "displayMode": "basic",
         "showUnfilled": true,
         "reduceOptions": {
           "calcs": [
@@ -1572,10 +1580,36 @@
             "type": "prometheus",
             "uid": "prometheus-ops"
           },
-          "expr": "devsecops_cve_par_severite",
-          "legendFormat": "{{severite}}",
-          "refId": "A",
-          "instant": false
+          "expr": "devsecops_cve_par_severite{severite=\"critical\"}",
+          "legendFormat": "critical",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_cve_par_severite{severite=\"high\"}",
+          "legendFormat": "high",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_cve_par_severite{severite=\"medium\"}",
+          "legendFormat": "medium",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_cve_par_severite{severite=\"low\"}",
+          "legendFormat": "low",
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -1692,10 +1726,36 @@
             "type": "prometheus",
             "uid": "prometheus-ops"
           },
-          "expr": "devsecops_zap_alertes",
-          "legendFormat": "{{risque}}",
-          "refId": "A",
-          "instant": false
+          "expr": "devsecops_zap_alertes{risque=\"elevee\"}",
+          "legendFormat": "elevee",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_zap_alertes{risque=\"moyenne\"}",
+          "legendFormat": "moyenne",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_zap_alertes{risque=\"faible\"}",
+          "legendFormat": "faible",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-ops"
+          },
+          "expr": "devsecops_zap_alertes{risque=\"info\"}",
+          "legendFormat": "info",
+          "refId": "D"
         }
       ],
       "fieldConfig": {
@@ -1793,8 +1853,8 @@
     },
     {
       "id": 33,
-      "type": "timeseries",
-      "title": "Evolution des vulnerabilites au fil des builds",
+      "type": "bargauge",
+      "title": "CVE par build (Dependency-Check)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus-ops"
@@ -1811,99 +1871,51 @@
             "type": "prometheus",
             "uid": "prometheus-ops"
           },
-          "expr": "devsecops_cve_total",
-          "legendFormat": "CVE totales",
-          "refId": "A",
-          "instant": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-ops"
-          },
-          "expr": "devsecops_cve_kev",
-          "legendFormat": "CVE exploitees (KEV)",
-          "refId": "B",
-          "instant": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus-ops"
-          },
-          "expr": "sum(devsecops_cve_par_severite{severite=\"critical\"})",
-          "legendFormat": "CVE critiques",
-          "refId": "C",
-          "instant": false
+          "expr": "max by (build) (devsecops_historique_cve_total)",
+          "legendFormat": "#{{build}}",
+          "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "none",
           "min": 0,
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 10,
-            "lineInterpolation": "stepAfter"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CVE exploitees (KEV)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "red"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CVE totales"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "orange"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "CVE critiques"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "dark-red"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
+        "orientation": "vertical",
+        "displayMode": "basic",
+        "showUnfilled": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
-      }
+      },
+      "description": "La baisse correspond a la mise a jour de Tomcat decidee grace a la Threat Intelligence"
     },
     {
       "id": 34,

@@ -38,6 +38,11 @@ services:
   pushgateway:
     image: prom/pushgateway
     container_name: pushgateway
+    command:
+      - --persistence.file=/data/metrics
+      - --persistence.interval=1m
+    volumes:
+      - pushgateway-data:/data
     ports:
       - "9091:9091"
     mem_limit: 64m
@@ -50,3 +55,4 @@ networks:
 volumes:
   prometheus-data:
   grafana-data:
+  pushgateway-data:
