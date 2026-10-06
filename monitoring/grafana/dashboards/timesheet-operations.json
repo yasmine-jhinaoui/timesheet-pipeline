@@ -47,7 +47,7 @@
       "title": "",
       "options": {
         "mode": "markdown",
-        "content": "## Timesheet - Supervision en exploitation (phase Operations DevSecOps)\n**Disponibilite** du service | **Resilience** face aux pannes injectees par *kube-monkey* (lignes verticales orange) | **Performance** applicative | **Pipeline** CI/CD Jenkins. Sources : Prometheus, kube-state-metrics, Spring Boot Actuator, plugin Prometheus de Jenkins."
+        "content": "## Timesheet - Supervision en exploitation (phase Operations DevSecOps)\n**Disponibilite** du service | **Resilience** face aux pannes injectees par *kube-monkey* (lignes verticales orange) | **Performance** applicative | **Pipeline** CI/CD Jenkins. Securite DevSecOps (resultats des outils de securite a chaque build). Sources : Prometheus, kube-state-metrics, Spring Boot Actuator, plugin Prometheus de Jenkins, Pushgateway."
       },
       "id": 1,
       "datasource": {
